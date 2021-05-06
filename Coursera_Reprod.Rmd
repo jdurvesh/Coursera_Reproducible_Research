@@ -1,0 +1,140 @@
+---
+title: "Reproducible_research"
+author: "durvesh"
+date: "5/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars,warning=FALSE}
+library(tidyverse)
+
+```
+
+```{r}
+
+# 1.Code for reading in the dataset
+
+zipF<- "C:\\Users\\durvesh\\Downloads\\repdata_data_activity.zip"
+outDir<-"C:\\Users\\durvesh\\Documents\\unzipfolder1"
+unzip(zipF,exdir=outDir)
+
+t1<-read.csv(file.choose())
+
+```
+
+```{r}
+#1 Code for Processing the Data Set 
+class(t1$date)
+typeof(t1$date)
+t1$date<-as.Date(t1$date)
+
+t1$steps[is.na(t1$steps)]<-0
+
+t1$steps <- as.numeric(t1$steps)
+d1<-weekdays(t1$date)
+
+t2 <- cbind(t1,d1)
+head(t2)
+
+
+```
+
+
+```{r}
+steps_by_day <-aggregate(steps~date,sum,data=t2)
+```
+
+
+```{r}
+#2.Histogram of Total Number of Steps 
+
+hist(steps_by_day$steps,xlab = "Total Steps / Day",ylab= "Frequency", main="Histogram of Total Steps / Day")
+ 
+```
+
+
+```{r}
+# 3. Mean and median number of steps taken each day
+
+cat("The mean of number of steps per day is:",mean(steps_by_day$steps))
+
+cat("\n")
+
+cat("------------------------")
+
+cat("\n")
+
+cat("The median of number of steps per day is:",median(steps_by_day$steps))
+
+
+```
+
+
+```{r}
+
+#4. Time Series Plot of Average No of Steps taken in an Interval 
+
+#Aggregate function for mean over all days, for each interval
+agg_interval<-aggregate(steps~interval,data=t2,mean)
+
+#Plot of Steps by Interval
+ggplot(agg_interval,aes(x=interval,y=steps))+
+  geom_line()
+
+```
+
+```{r}
+
+#5 The 5-minute interval that, on average, contains the maximum number of steps
+
+cat("The 5 min Interval with max steps:",agg_interval$interval[which.max(agg_interval$steps)])
+```
+
+```{r}
+#6. Code to describe and show a strategy for imputing missing data
+
+# Imputing missing values with the mean of data by group ( group is taken as Interval )
+tn<-t %>% group_by(interval) %>% 
+      nest()
+impute_missing<-function(df){
+  df$step_impute = 
+    if_else(is.na(df$steps),mean(df$steps,na.rm=TRUE),as.double(df$steps))
+}
+
+tn <-tn %>% 
+      mutate(steps_impute = map(data, impute_missing)) %>%
+      unnest()
+
+```
+
+
+```{r}
+#7. Histogram of the total number of steps taken each day after missing values are imputed
+
+steps_by_day_imputed <-aggregate(steps_impute~date,sum,data=tn)
+
+hist(steps_by_day_imputed$steps_impute,xlab="steps_by_day",main="Histogram with Mean Imputation of Steps")
+
+```
+
+
+```{r}
+#8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+tn$dateType <-  ifelse(as.POSIXlt(tn$date)$wday %in% c(0,6), 'weekend', 'weekday')
+
+Avgsteps_int_dateType<-aggregate(steps_impute~dateType+interval,data=tn,mean)
+
+ggplot(Avgsteps_int_dateType, aes(interval, steps_impute)) + 
+    geom_line() + 
+    facet_grid(dateType ~ .) +
+    xlab("5-minute interval") + 
+    ylab("Average number of steps")
+
+
+```
+
